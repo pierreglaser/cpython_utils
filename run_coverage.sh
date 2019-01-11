@@ -7,6 +7,8 @@ COVERAGE_PROCESS_START=$HOME/repos/$CPYTHON_REPO/.coveragerc
 
 PYTHON=python3.8
 HTML_DIR="$CPYTHON_COV_HOME"/"$CPYTHON_REPO"/"$CURRENT_BRANCH"
+HTML_DIR="$CPYTHON_COV_HOME"/"$CURRENT_BRANCH"
+
 
 if [ -z "${VIRTUAL_ENV}" ]; then
     echo "you should have a virtual environment activated to run this script"
@@ -19,11 +21,16 @@ fi
 # - adding COVERAGE_PROCESS_START as an environment variable before running the
 #   tests
 
-$PYTHON "$0"/install_coverage_subprocess_pth.py
+$PYTHON ./install_coverage_subprocess_pth.py
 
-COVERAGE_PROCESS_START=${COVERAGE_PROCESS_START} $PYTHON -mcoverage run \
-    "$CPYTHON_HOME"/Lib/test/regrtest.py test_pickle -v
-    # -m test_method_in_main
+if [ ! -z $1 ]; then
+    COVERAGE_PROCESS_START=${COVERAGE_PROCESS_START} $PYTHON -mcoverage run \
+        Lib/test/regrtest.py test_pickle -v -m $1
+else
+    COVERAGE_PROCESS_START=${COVERAGE_PROCESS_START} $PYTHON -mcoverage run \
+        Lib/test/regrtest.py test_pickle -v
+fi
+
 
 
 $PYTHON remove_coverage_pth_code.py
@@ -32,12 +39,14 @@ $PYTHON -m coverage combine
 $PYTHON -m coverage report
 
 
-# make a coverage directory for each branch
-if [ ! -d "$HTML_DIR" ]; then
-    mkdir "$HTML_DIR"
+if [ -z $NO_HTML ]; then
+    # make a coverage directory for each branch
+    if [ ! -d "$HTML_DIR" ]; then
+        mkdir "$HTML_DIR"
+    fi
+
+    $PYTHON -m coverage html --directory="$HTML_DIR"
+
+    # open the coverage summary
+    xdg-open "$HTML_DIR/index.html"
 fi
-
-$PYTHON -m coverage html --directory="$HTML_DIR"
-
-# open the coverage summary
-xdg-open "$HTML_DIR/index.html"

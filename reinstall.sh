@@ -2,8 +2,8 @@ CPYTHON_HOME=$(git rev-parse --show-toplevel)
 CPYTHON_REPO=$(basename $CPYTHON_HOME)
 VENV=$CPYTHON_REPO
 
-# install folder of cpython; not the repository.
-PREFIX=$HOME/$CPYTHON_HOME
+# install folder of python; not the repository.
+PREFIX=$HOME/$CPYTHON_REPO
 
 FULL_REINSTALL=0
 
@@ -29,8 +29,15 @@ if [ "$FULL_REINSTALL" = 1 ]; then
         echo "cleaning the repo, doing a full reinstall..."
         sudo git clean -xdf
 
+        echo "recreating cpython_utils install/test symlinks"
+        pushd ../cpython_utils
+        CPYTHON_REPO=$CPYTHON_HOME ./infect_cpython_repo.sh
+        popd
+
         sudo ./configure --prefix="$PREFIX" --with-pydebug
-        sudo make && sudo make altinstall
+        sudo make coverage
+        sudo make altinstall
+        sudo make tags
 
     else
         echo "exiting the script"
@@ -42,42 +49,34 @@ else
 
     # remove old bytecodes (pyc files) (lighter make clean)
     echo "removing old pickle bytecode..."
-    # from inside the cpython repo
-    # bash exits with 1 if not found, -> unable to use the errexit option
-    # without crashing the bash session. Better check if file exists using
-    # either -f or find
-    sudo rm "./build/lib.linux-x86_64-3.8-pydebug/_pickle.cpython-38dm-x86_64-linux-gnu.so"
-    sudo rm "./build/temp.linux-x86_64-3.8-pydebug$HOME/repos/cpython/Modules/_pickle.o"
-    sudo rm "./Lib/__pycache__/pickle.cpython-38.pyc"
-    sudo rm "./Lib/__pycache__/pickle.cpython-38.pyc"
 
+    sudo find .  -type f -wholename '*pickle*.*o' -exec rm -vf {} \;
+    sudo find .  -type f -wholename '*__pycache__*/*pickle*' -exec rm -vf {} \;
 
     # from inside the destination folder
-    sudo rm "$PREFIX/lib/python3.8/__pycache__/pickle.cpython-38.pyc"
-    sudo rm "$PREFIX/lib/python3.8/__pycache__/pickle.cpython-38.opt-2.pyc"
-    sudo rm "$PREFIX/lib/python3.8/__pycache__/pickle.cpython-38.opt-1.pyc"
+    sudo find $PREFIX -type f -wholename '*pickle*.*o' -exec rm -vf {} \;
+    sudo find $PREFIX -type f -wholename '*__pycache__*/*pickle*' -exec rm -vf {} \;
 
     # use clinc on pickle before compiling
     echo "calling clinic on _pickle.c"
-    python3.8 "$CPYTHON_HOME"/Tools/clinic/clinic.py Modules/_pickle.c
+    ./python ./Tools/clinic/clinic.py ./Modules/_pickle.c
 
     echo "re-compiling python"
-    # re-compile pickle
-    sudo make -C $CPYTHON_HOME -s
+    sudo make -s
 
     # install the tests
     echo "installing pickle tests and libraries"
     # make altinstall, but trimmed down to only modified files
-    sudo /usr/bin/install -c -m 644 $CPYTHON_HOME/Lib/pickle.py "$HOME/$VENV/lib/python3.8"
-    sudo /usr/bin/install -c -m 644 $CPYTHON_HOME/Lib/pickletools.py "$HOME/$VENV/lib/python3.8"
-    sudo /usr/bin/install -c -m 644 .CPYTHON_HOME/Lib/test/pickletester.py "$HOME/$VENV/lib/python3.8/test"
-    sudo /usr/bin/install -c -m 644 .CPYTHON_HOME/Lib/test/test_pickle.py "$HOME/$VENV/lib/python3.8/test"
+    sudo /usr/bin/install -c -m 644 ./Lib/pickle.py "$HOME/$VENV/lib/python3.8"
+    sudo /usr/bin/install -c -m 644 ./Lib/pickletools.py "$HOME/$VENV/lib/python3.8"
+    sudo /usr/bin/install -c -m 644 ./Lib/test/pickletester.py "$HOME/$VENV/lib/python3.8/test"
+    sudo /usr/bin/install -c -m 644 ./Lib/test/test_pickle.py "$HOME/$VENV/lib/python3.8/test"
 
 fi
 
 # re-create a clean virtualenv. This is done because the python executables are
 # not updated in the virtualenv.
-PYTHON="$HOME/$VENV/bin/python3.8"
+PYTHON="$PREFIX"/bin/python3.8
 rmvirtualenv "$VENV"
 mkvirtualenv "$VENV" --python="$PYTHON"
 setvirtualenvproject "$VIRTUAL_ENV" "$HOME/repos/cpython"

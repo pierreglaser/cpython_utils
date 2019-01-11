@@ -1,6 +1,9 @@
 set breakpoint pending on
-dir ~/repos/cpython
-break Modules/_pickle.c:6668
-break Modules/_pickle.c:7157
-break Modules/_pickle.c:3050
-run -m pdb test_module.py
+dir ~/repos/pythonic_cpython
+break Modules/_pickle.c:7922
+break Modules/_pickle.c:1747
+break Modules/_pickle.c:4367
+break Modules/_pickle.c:4255
+
+run -m pdb test_nested_function.py
+
